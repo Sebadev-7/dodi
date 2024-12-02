@@ -22,7 +22,7 @@ const rooms = {};
 io.on('connection', (socket) => {
   console.log('New client connected');
 
-  socket.on('createRoom', ({ videoUrl, host }) => {
+  socket.on('createRoom', ({ videoUrl }) => {
     const roomId = uuidv4();
     rooms[roomId] = {
       videoState: {
@@ -31,10 +31,9 @@ io.on('connection', (socket) => {
         videoUrl: videoUrl,
       },
       users: [],
-      host: socket.id, // Guardar el ID del socket del líder
     };
     socket.join(roomId);
-    socket.emit('roomCreated', { roomId, videoUrl, isHost: host }); // Emitir el ID de la sala creada, la URL del video y el estado del líder
+    socket.emit('roomCreated', { roomId, videoUrl }); // Emitir el ID de la sala creada y la URL del video
     console.log(`Room created: ${roomId}`);
   });
 
@@ -51,7 +50,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('syncState', ({ roomId, videoState }) => {
-    if (rooms[roomId] && rooms[roomId].host === socket.id) { // Solo el líder puede sincronizar el estado
+    if (rooms[roomId] && rooms[roomId].videoState.currentTime !== videoState.currentTime) {
       rooms[roomId].videoState = videoState;
       io.to(roomId).emit('stateSynced', videoState);
       console.log(`Video state synced in room: ${roomId}`);
@@ -59,7 +58,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('updateVideoUrl', ({ roomId, videoUrl }) => {
-    if (rooms[roomId] && rooms[roomId].host === socket.id) { // Solo el líder puede actualizar la URL del video
+    if (rooms[roomId]) {
       rooms[roomId].videoState.videoUrl = videoUrl;
       io.to(roomId).emit('videoUrlUpdated', videoUrl);
       console.log(`Video URL updated in room: ${roomId}`);
