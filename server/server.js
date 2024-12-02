@@ -9,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: ["https://dodi-wine.vercel.app", "http://localhost:5173"], // Permitir ambos orígenes
+    origin: "*", // Permitir cualquier origen
     methods: ["GET", "POST"]
   }
 });
@@ -18,10 +18,6 @@ app.use(cors());
 app.use(compression());
 
 const rooms = {};
-
-io.engine.on('headers', (headers) => {
-  headers['Content-Encoding'] = 'gzip';
-});
 
 io.on('connection', (socket) => {
   console.log('New client connected');
@@ -54,12 +50,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('syncState', ({ roomId, videoState }) => {
-    if (
-      rooms[roomId] &&
-      Math.abs(rooms[roomId].videoState.currentTime - videoState.currentTime) > 0.5 // Por ejemplo, tolerancia de 0.5 segundos
-    ) {
+    if (rooms[roomId] && rooms[roomId].videoState.currentTime !== videoState.currentTime) {
       rooms[roomId].videoState = videoState;
-      socket.broadcast.to(roomId).emit('stateSynced', videoState);
+      io.to(roomId).emit('stateSynced', videoState);
       console.log(`Video state synced in room: ${roomId}`);
     }
   });
@@ -67,19 +60,12 @@ io.on('connection', (socket) => {
   socket.on('updateVideoUrl', ({ roomId, videoUrl }) => {
     if (rooms[roomId]) {
       rooms[roomId].videoState.videoUrl = videoUrl;
-      socket.broadcast.to(roomId).emit('videoUrlUpdated', videoUrl);
+      io.to(roomId).emit('videoUrlUpdated', videoUrl);
       console.log(`Video URL updated in room: ${roomId}`);
     }
   });
 
   socket.on('disconnect', () => {
-    Object.keys(rooms).forEach((roomId) => {
-      rooms[roomId].users = rooms[roomId].users.filter((id) => id !== socket.id);
-      if (rooms[roomId].users.length === 0) {
-        delete rooms[roomId]; // Eliminar salas vacías
-        console.log(`Room ${roomId} deleted due to inactivity.`);
-      }
-    });
     console.log('Client disconnected');
   });
 });
