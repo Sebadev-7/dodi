@@ -125,6 +125,20 @@ const VideoSyncApp = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (playerRef.current) {
+        const newVideoState = {
+          ...videoState,
+          currentTime: playerRef.current.getCurrentTime(),
+          isPlaying: !playerRef.current.getInternalPlayer().paused,
+        };
+        socket.emit('syncState', { roomId, videoState: newVideoState });
+      }
+    }, 10000); // Cada 10 segundos
+    return () => clearInterval(interval);
+  }, [videoState, roomId]);
+
   const handlePlayThrottled = throttle(() => {
     if (playerRef.current) {
       const newVideoState = {
