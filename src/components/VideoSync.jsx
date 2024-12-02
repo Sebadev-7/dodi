@@ -32,6 +32,8 @@ const VideoSyncApp = () => {
   const [roomCode, setRoomCode] = useState('');
   const [joinMessage, setJoinMessage] = useState('');
   const [isVideoChatActive, setIsVideoChatActive] = useState(false);
+  const [isHost, setIsHost] = useState(false); // Nuevo estado para el líder
+  const [leaderMessage, setLeaderMessage] = useState(''); // Mensaje para el líder
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -100,9 +102,15 @@ const VideoSyncApp = () => {
       }
     });
 
-    socket.on('roomCreated', ({ roomId, videoUrl }) => {
+    socket.on('roomCreated', ({ roomId, videoUrl, isHost }) => {
       setRoomCode(roomId);
       setVideoUrl(videoUrl);
+      setIsHost(isHost); // Establecer el estado del líder
+      if (isHost) {
+        setLeaderMessage("Eres el líder de sala, solo tú puedes pausar, reproducir, adelantar o retroceder el video de YouTube");
+        setTimeout(() => setLeaderMessage(''), 3000); // Ocultar el mensaje después de 3 segundos
+      }
+      socket.emit('joinRoom', { roomId, userId: 'host' }); // El líder se une automáticamente a la sala
     });
 
     socket.on('userJoined', (userId) => {
@@ -228,7 +236,7 @@ const VideoSyncApp = () => {
   };
 
   const createRoom = () => {
-    socket.emit('createRoom', { videoUrl });
+    socket.emit('createRoom', { videoUrl, host: true }); // Enviar el host como verdadero
   };
 
   const joinRoom = () => {
@@ -241,7 +249,11 @@ const VideoSyncApp = () => {
   };
 
   const updateVideoUrl = () => {
-    socket.emit('updateVideoUrl', { roomId, videoUrl });
+    if (isHost) {
+      socket.emit('updateVideoUrl', { roomId, videoUrl });
+    } else {
+      alert('Solo el líder puede actualizar la URL del video.');
+    }
   };
 
   const startVideoChat = () => {
@@ -450,6 +462,13 @@ const VideoSyncApp = () => {
                       <p>{joinMessage}</p>
                     </div>
                   )}
+
+                  {/* Mensaje de líder */}
+                  {leaderMessage && (
+                    <div className="mt-2 bg-gray-800/30 p-2 rounded-lg text-center text-xs">
+                      <p>{leaderMessage}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -546,6 +565,13 @@ const VideoSyncApp = () => {
               {joinMessage && (
                 <div className="mt-2 bg-gray-800/30 p-2 rounded-lg text-center text-xs">
                   <p>{joinMessage}</p>
+                </div>
+              )}
+
+              {/* Mensaje de líder */}
+              {leaderMessage && (
+                <div className="mt-2 bg-gray-800/30 p-2 rounded-lg text-center text-xs">
+                  <p>{leaderMessage}</p>
                 </div>
               )}
             </div>
