@@ -6,7 +6,7 @@ import socketIOClient from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 import { throttle } from 'lodash';
 
-const ENDPOINT = 'http://localhost:3000';
+const ENDPOINT = 'https://dodi-16kt.onrender.com';
 const socket = socketIOClient(ENDPOINT);
 
 const VideoSyncApp = () => {
@@ -292,7 +292,6 @@ const VideoSyncApp = () => {
       </button>
     </div>
   );
-  
 
   const Footer = () => (
     <div className="text-center p-1 text-xs text-gray-400 bg-gray-900/50 backdrop-blur-sm">
