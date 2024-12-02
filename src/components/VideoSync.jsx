@@ -135,7 +135,7 @@ const VideoSyncApp = () => {
         };
         socket.emit('syncState', { roomId, videoState: newVideoState });
       }
-    }, 5000); // Cada 5 segundos
+    }, 10000); // Cada 10 segundos
     return () => clearInterval(interval);
   }, [videoState, roomId]);
 
