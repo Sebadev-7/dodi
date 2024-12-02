@@ -9,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: "https://dodi-wine.vercel.app", // Permitir solo tu dominio de Vercel
+    origin: ["https://dodi-wine.vercel.app", "http://localhost:5173"], // Permitir ambos orígenes
     methods: ["GET", "POST"]
   }
 });
