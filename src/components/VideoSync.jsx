@@ -91,7 +91,13 @@ const VideoSyncApp = () => {
     socket.on('stateSynced', (newVideoState) => {
       setVideoState(newVideoState);
       if (playerRef.current) {
-        playerRef.current.seekTo(newVideoState.currentTime);
+        const playerTime = playerRef.current.getCurrentTime();
+        const timeDiff = Math.abs(playerTime - newVideoState.currentTime);
+
+        if (timeDiff > 0.5) { // Solo ajusta si el desfase es significativo
+          playerRef.current.seekTo(newVideoState.currentTime, 'seconds');
+        }
+
         if (newVideoState.isPlaying) {
           playerRef.current.getInternalPlayer().play();
         } else {
@@ -126,53 +132,63 @@ const VideoSyncApp = () => {
   }, []);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const syncInterval = setInterval(() => {
       if (playerRef.current) {
+        const currentTime = playerRef.current.getCurrentTime();
+        const isPlaying = !playerRef.current.getInternalPlayer().paused;
+
         const newVideoState = {
           ...videoState,
-          currentTime: playerRef.current.getCurrentTime(),
-          isPlaying: !playerRef.current.getInternalPlayer().paused,
+          currentTime,
+          isPlaying,
         };
+
         socket.emit('syncState', { roomId, videoState: newVideoState });
       }
-    }, 10000); // Cada 10 segundos
-    return () => clearInterval(interval);
+    }, 2000); // Intervalo más corto
+
+    return () => clearInterval(syncInterval);
   }, [videoState, roomId]);
 
-  const handlePlayThrottled = throttle(() => {
+  const handlePlay = () => {
     if (playerRef.current) {
+      const currentTime = playerRef.current.getCurrentTime();
+
       const newVideoState = {
         ...videoState,
-        currentTime: playerRef.current.getCurrentTime(),
+        currentTime,
         isPlaying: true,
       };
-      setVideoState(newVideoState);
-      socket.emit('syncState', { roomId, videoState: newVideoState });
-    }
-  }, 1000); // Limita a una vez por segundo
 
-  const handlePause = () => {
-    if (playerRef.current) {
-      const newVideoState = {
-        ...videoState,
-        currentTime: playerRef.current.getCurrentTime(),
-        isPlaying: false,
-      };
       setVideoState(newVideoState);
       socket.emit('syncState', { roomId, videoState: newVideoState });
     }
   };
 
-  const handleSeek = (e) => {
+  const handlePause = () => {
     if (playerRef.current) {
+      const currentTime = playerRef.current.getCurrentTime();
+
       const newVideoState = {
         ...videoState,
-        currentTime: e.target.currentTime,
-        isPlaying: !playerRef.current.getInternalPlayer().paused,
+        currentTime,
+        isPlaying: false,
       };
+
       setVideoState(newVideoState);
       socket.emit('syncState', { roomId, videoState: newVideoState });
     }
+  };
+
+  const handleSeek = (seconds) => {
+    const newVideoState = {
+      ...videoState,
+      currentTime: seconds,
+      isPlaying: videoState.isPlaying,
+    };
+
+    setVideoState(newVideoState);
+    socket.emit('syncState', { roomId, videoState: newVideoState });
   };
 
   const handleFullscreenChange = (isFullscreen) => {
@@ -327,9 +343,9 @@ const VideoSyncApp = () => {
                   url={videoUrl}
                   playing={videoState.isPlaying}
                   controls
-                  onPlay={handlePlayThrottled}
+                  onPlay={handlePlay}
                   onPause={handlePause}
-                  onSeek={handleSeek}
+                  onSeek={(seconds) => handleSeek(seconds)}
                   onFullscreenChange={handleFullscreenChange}
                   config={{
                     youtube: {

@@ -19,6 +19,10 @@ app.use(compression());
 
 const rooms = {};
 
+io.engine.on('headers', (headers) => {
+  headers['Content-Encoding'] = 'gzip';
+});
+
 io.on('connection', (socket) => {
   console.log('New client connected');
 
@@ -50,9 +54,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('syncState', ({ roomId, videoState }) => {
-    if (rooms[roomId] && rooms[roomId].videoState.currentTime !== videoState.currentTime) {
+    if (
+      rooms[roomId] &&
+      Math.abs(rooms[roomId].videoState.currentTime - videoState.currentTime) > 0.5 // Por ejemplo, tolerancia de 0.5 segundos
+    ) {
       rooms[roomId].videoState = videoState;
-      io.to(roomId).emit('stateSynced', videoState);
+      socket.broadcast.to(roomId).emit('stateSynced', videoState);
       console.log(`Video state synced in room: ${roomId}`);
     }
   });
@@ -60,12 +67,19 @@ io.on('connection', (socket) => {
   socket.on('updateVideoUrl', ({ roomId, videoUrl }) => {
     if (rooms[roomId]) {
       rooms[roomId].videoState.videoUrl = videoUrl;
-      io.to(roomId).emit('videoUrlUpdated', videoUrl);
+      socket.broadcast.to(roomId).emit('videoUrlUpdated', videoUrl);
       console.log(`Video URL updated in room: ${roomId}`);
     }
   });
 
   socket.on('disconnect', () => {
+    Object.keys(rooms).forEach((roomId) => {
+      rooms[roomId].users = rooms[roomId].users.filter((id) => id !== socket.id);
+      if (rooms[roomId].users.length === 0) {
+        delete rooms[roomId]; // Eliminar salas vacías
+        console.log(`Room ${roomId} deleted due to inactivity.`);
+      }
+    });
     console.log('Client disconnected');
   });
 });
